@@ -1,10 +1,8 @@
 import pandas as pd
 from src.connectors.api_clients import fetch_twitter_data, fetch_reddit_data
 from src.processing.text_cleaner import preprocess_text
-from src.analysis.model import SentimentAnalyzer
-
-analyzer = SentimentAnalyzer()
-
+from src.analysis.model import get_analyzer
+analyzer = get_analyzer()  
 def run_sentiment_pipeline(keyword, max_results=50):
     try:
         twitter_posts = fetch_twitter_data(keyword, max_results)
