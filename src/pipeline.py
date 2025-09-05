@@ -28,18 +28,18 @@ def run_sentiment_pipeline(keyword, max_results=50):
 
         
     results = analyzer.analyze(valid_texts_df['cleaned_text'].tolist())
-    scores = []
-    sentiments = []
-    
-    if results is not None:
-        for res in results:
-            if isinstance(res, dict) and 'label' in res and 'score' in res:
-                sentiments.append(str(res['label']).capitalize())
-                scores.append(float(res['score']))
-    
-    if sentiments:  # Only update if we have results
+
+    # Check if the results are valid and match the expected length
+    if results and len(results) == len(valid_texts_df):
+        sentiments = [str(res['label']).capitalize() for res in results]
+        scores = [res['score'] for res in results]
+        
         valid_texts_df['sentiment'] = sentiments
-    valid_texts_df['sentiment_score'] = scores
+        valid_texts_df['sentiment_score'] = scores
+    else:
+        # If no results, assign None to prevent the error
+        valid_texts_df['sentiment'] = None
+        valid_texts_df['sentiment_score'] = None
     
     df = df.merge(valid_texts_df[['sentiment', 'sentiment_score']], left_index=True, right_index=True, how='left')
     df.dropna(subset=['sentiment'], inplace=True)
