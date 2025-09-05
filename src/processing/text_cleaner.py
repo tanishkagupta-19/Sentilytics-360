@@ -3,6 +3,16 @@ import string
 import emoji
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+import nltk
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
+    nltk.download("punkt")
+
+try:
+    nltk.data.find("corpora/stopwords")
+except LookupError:
+    nltk.download("stopwords")
 
 stop_words = set(stopwords.words('english'))
 
