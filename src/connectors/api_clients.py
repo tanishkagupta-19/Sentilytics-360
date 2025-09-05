@@ -5,6 +5,12 @@ import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
+# token = os.getenv("TWITTER_BEARER_TOKEN", "")
+# print("Twitter token:", token[:10], "...")
+
+# print("Reddit client ID:", os.getenv("REDDIT_CLIENT_ID"))
+# print("REDDIT_CLIENT_SECRET:", os.getenv("REDDIT_CLIENT_SECRET"))
+
 
 def fetch_twitter_data(keyword, max_results=50):
     bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
@@ -21,10 +27,11 @@ def fetch_twitter_data(keyword, max_results=50):
     )
     
     data = getattr(response, 'data', None)
-    
-    if data:
-        return data
-    return []
+    if not data:
+        print(f"[Twitter] No tweets found for keyword: {keyword}")
+        return []
+    return data
+
 
 def fetch_reddit_data(keyword, max_results=50):
     client_id = os.getenv("REDDIT_CLIENT_ID")
