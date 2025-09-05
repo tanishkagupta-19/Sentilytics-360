@@ -1,7 +1,14 @@
 # main.py
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from src.pipeline import run_sentiment_pipeline
+import os
+
+print("[ENV] Twitter token present:", bool(os.getenv("TWITTER_BEARER_TOKEN")))
+print("[ENV] Reddit client ID present:", bool(os.getenv("REDDIT_CLIENT_ID")))
+print("[ENV] Reddit secret present:", bool(os.getenv("REDDIT_CLIENT_SECRET")))
 
 # Initialize the FastAPI app
 app = FastAPI(
