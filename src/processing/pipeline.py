@@ -1,9 +1,11 @@
 import pandas as pd
-from src.connectors.api_clients import fetch_twitter_data, fetch_reddit_data
-from src.processing.text_cleaner import preprocess_text
-from src.analysis.model import get_analyzer
-analyzer = get_analyzer()  
+from database.db import engine
+from ..connectors.api_clients import fetch_twitter_data, fetch_reddit_data
+from .text_cleaner import preprocess_text
+from ..analysis.model import get_analyzer
+
 def run_sentiment_pipeline(keyword, max_results=50):
+    analyzer = get_analyzer()  
     try:
         twitter_posts = fetch_twitter_data(keyword, max_results)
     except Exception as e:
@@ -20,8 +22,8 @@ def run_sentiment_pipeline(keyword, max_results=50):
     for tweet in twitter_posts:
         all_posts.append({
             "source": "Twitter",
-            "created_at": getattr(tweet, "created_at", None),
-            "text": getattr(tweet, "text", "")
+            "created_at": tweet.get("created_at"),
+            "text": tweet.get("text", "")
         })
     for post in reddit_posts:
         all_posts.append({
@@ -55,5 +57,24 @@ def run_sentiment_pipeline(keyword, max_results=50):
 
     df = df.merge(valid_texts_df[['sentiment', 'sentiment_score']], left_index=True, right_index=True, how='left')
     df.dropna(subset=['sentiment'], inplace=True)
+
+
+    db_columns = df[['text', 'sentiment', 'sentiment_score']].copy()
+
+    db_columns.rename(columns={
+        'text': 'input_text',
+        'sentiment': 'sentiment_label',
+    }, inplace=True)
+
+    try:
+        db_columns.to_sql(
+            name='sentiment_results', 
+            con=engine,               
+            if_exists='append',       
+            index=False               
+        )
+        print(f"Successfully saved {len(db_columns)} results to the database.")
+    except Exception as e:
+        print(f"DATABASE SAVE FAILED: {e}")
 
     return df

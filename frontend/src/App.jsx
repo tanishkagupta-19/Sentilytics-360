@@ -18,7 +18,7 @@ const App = () => {
           </svg>
           <h1 className="text-xl font-bold text-gray-900">Sentilytics 360</h1>
         </div>
-        
+
         {/* Navigation buttons */}
         <nav className="space-x-4 flex">
           <button className="px-4 py-2 rounded-lg font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-300">
@@ -33,7 +33,7 @@ const App = () => {
   const LandingPage = () => (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-800 flex flex-col">
       <Header />
-      
+
       {/* Hero Section */}
       <section className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 py-16">
         <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 tracking-tight">
@@ -43,12 +43,12 @@ const App = () => {
           Unlock the power of public opinion with real-time sentiment analysis across Twitter and Reddit. Transform social media conversations into actionable insights.
         </p>
         <div className="flex flex-col md:flex-row gap-4 mb-16">
-          <button 
+          <button
             onClick={() => setView('dashboard')}
             className="px-8 py-4 rounded-full font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300 transform hover:scale-105 shadow-lg">
             Start Analyzing
           </button>
-          <button 
+          <button
             className="px-8 py-4 rounded-full font-semibold text-blue-600 bg-white border-2 border-blue-600 hover:bg-blue-50 transition-colors duration-300 transform hover:scale-105 shadow-lg">
             View Demo
           </button>
@@ -112,13 +112,13 @@ const App = () => {
         <p className="text-gray-600 max-w-2xl mx-auto mb-8">
           Join thousands of analysts, marketers, and researchers who trust Sentilytics 360 for their sentiment analysis needs.
         </p>
-        <button 
+        <button
           onClick={() => setView('dashboard')}
           className="px-8 py-4 rounded-full font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300 transform hover:scale-105 shadow-lg">
           Start Your Analysis Today
         </button>
       </section>
-      
+
       {/* Footer */}
       <footer className="bg-gray-100 py-6 text-center text-gray-500 text-sm">
         © 2024 Sentilytics 360. Empowering insights through sentiment analysis.
@@ -128,6 +128,11 @@ const App = () => {
 
   // Dashboard component.
   const DashboardPage = () => {
+    const [query, setQuery] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [apiData, setApiData] = useState(null);
+    const [error, setError] = useState(null);
+
     // A simple mock data object for the dashboard metrics
     const metrics = [
       { label: 'Total Posts Analyzed', value: '15,847', change: '+12.3%', trend: 'up' },
@@ -137,13 +142,33 @@ const App = () => {
       { label: 'Active Users', value: '2,543', change: '+8.7%', trend: 'up' },
       { label: 'Negative Sentiment', value: '10%', change: '-3.4%', trend: 'down' },
     ];
-    
+
     // Using a simple mock for the chart data
     const sentimentData = [
       { label: 'Positive', percentage: 65, color: 'bg-green-500' },
       { label: 'Neutral', percentage: 25, color: 'bg-yellow-500' },
       { label: 'Negative', percentage: 10, color: 'bg-red-500' },
     ];
+
+    const handleAnalyze = async () => {
+      if (!query.trim()) return;
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch(
+          `http://localhost:8000/api/sentiment?query=${query}`
+        );
+        if (!response.ok) {
+          throw new Error("API request failed");
+        }
+        const data = await response.json();
+        setApiData(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
     return (
       <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
@@ -167,41 +192,75 @@ const App = () => {
           </div>
         </header>
         <main className="container mx-auto py-8 px-4">
-          {/* Search & Filter Section */}
           <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-8">
             <h2 className="text-xl font-bold mb-4">Search & Filters</h2>
+
             <div className="flex flex-col md:flex-row items-center gap-4">
               <div className="flex-1 w-full">
                 <input
                   type="text"
-                  placeholder="Enter keywords or hashtags to analyze sentiment across social platforms"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Enter keywords or hashtags"
                   className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
                 />
               </div>
-              <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
-                <select className="p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>All Platforms</option>
-                  <option>Twitter</option>
-                  <option>Reddit</option>
-                </select>
-                <select className="p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>Last 7 Days</option>
-                  <option>Last 24 Hours</option>
-                  <option>Last 30 Days</option>
-                </select>
-                <select className="p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>All Sentiment</option>
-                  <option>Positive</option>
-                  <option>Neutral</option>
-                  <option>Negative</option>
-                </select>
-                <button className="px-6 py-3 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300">
-                  Analyze
-                </button>
-              </div>
+
+              <button
+                onClick={handleAnalyze}
+                className="px-6 py-3 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+              >
+                Analyze
+              </button>
             </div>
           </div>
-          
+
+          {loading && (
+            <div className="bg-white p-4 rounded-xl shadow-md border text-gray-600">
+              Processing your query...
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-white p-4 rounded-xl shadow-md border border-red-400 text-red-600">
+              {error}
+            </div>
+          )}
+
+          {apiData && (
+            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
+              <h3 className="text-xl font-bold mb-3">Analysis Result</h3>
+
+              <p className="text-gray-700">
+                <strong>Query:</strong> {apiData.keyword || "-"}
+              </p>
+
+              <p className="text-gray-700">
+                <strong>Sentiment:</strong>{" "}
+                {apiData.sentiment_breakdown
+                  ? apiData.sentiment_breakdown.positive > apiData.sentiment_breakdown.negative
+                    ? "Positive"
+                    : "Negative"
+                  : "-"}
+              </p>
+
+              <p className="text-gray-700">
+                <strong>Score:</strong>{" "}
+                {apiData.sentiment_breakdown
+                  ? apiData.sentiment_breakdown.positive + "%"
+                  : "-"}
+              </p>
+
+              {apiData.data && (
+                <p className="mt-3 text-gray-600">
+                  <strong>Summary:</strong>{" "}
+                  {`Total ${apiData.total_results} posts analyzed.`}
+                </p>
+              )}
+            </div>
+          )}
+
+
           {/* Metrics & Insights Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
             <div className="lg:col-span-2 space-y-6">

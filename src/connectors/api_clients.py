@@ -1,56 +1,52 @@
-import os
-import tweepy
-import praw
+import requests
+import snscrape.modules.twitter as sntwitter
 import pandas as pd
-from dotenv import load_dotenv
-
-load_dotenv()
-# token = os.getenv("TWITTER_BEARER_TOKEN", "")
-# print("Twitter token:", token[:10], "...")
-
-# print("Reddit client ID:", os.getenv("REDDIT_CLIENT_ID"))
-# print("REDDIT_CLIENT_SECRET:", os.getenv("REDDIT_CLIENT_SECRET"))
 
 
+# ======================================================
+# 1. FETCH TWITTER DATA  (SNSCRAPE)
+# ======================================================
 def fetch_twitter_data(keyword, max_results=50):
-    bearer_token = os.getenv("TWITTER_BEARER_TOKEN")
-    if not bearer_token:
-        raise ValueError("TWITTER_BEARER_TOKEN environment variable not set.")
-    
-    client = tweepy.Client(bearer_token)
-    query = f"{keyword} -is:retweet lang:en"
-    
-    response = client.search_recent_tweets(
-        query=query, 
-        max_results=max_results, 
-        tweet_fields=["created_at"]
-    )
-    
-    data = getattr(response, 'data', None)
-    if not data:
-        print(f"[Twitter] No tweets found for keyword: {keyword}")
+    tweets = []
+    try:
+        scraper = sntwitter.TwitterSearchScraper(f'"{keyword}"')
+        for tweet in scraper.get_items():
+            if len(tweets) >= max_results:
+                break
+            tweets.append({
+                "source": "Twitter",
+                "created_at": tweet.date,
+                "text": tweet.rawContent
+            })
+    except Exception as e:
+        print(f"[Twitter Error] {e}")
         return []
-    return data
+    print(f"[Twitter] Fetched {len(tweets)} tweets for '{keyword}'")
+    return tweets
 
 
+# ======================================================
+# 2. FETCH REDDIT DATA  (PUSHSIFT API)
+# ======================================================
 def fetch_reddit_data(keyword, max_results=50):
-    client_id = os.getenv("REDDIT_CLIENT_ID")
-    client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-    
-    if not client_id or not client_secret:
-        raise ValueError("Reddit API credentials not set in environment variables.")
+    url = f"https://www.reddit.com/search.json?q={keyword}&limit={max_results}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    try:
+        response = requests.get(url, headers=headers)
+        json_data = response.json()
+    except Exception as e:
+        print(f"[Reddit Error] {e}")
+        return []
 
-    reddit = praw.Reddit(
-        client_id=client_id,
-        client_secret=client_secret,
-        user_agent="Sentilytics360 Scraper v1.0"
-    )
-    
-    subreddit = reddit.subreddit("all")
     posts = []
-    for sub in subreddit.search(keyword, limit=max_results, sort="new"):
+    for post in json_data.get("data", {}).get("children", []):
+        data = post.get("data", {})
         posts.append({
-            "created_at": pd.to_datetime(sub.created, unit='s'),
-            "text": f"{sub.title}. {sub.selftext}"
+            "source": "Reddit",
+            "created_at": pd.to_datetime(data.get("created_utc", None), unit='s', errors='coerce'),
+            "text": f"{data.get('title', '')}. {data.get('selftext', '')}"
         })
+
+    print(f"[Reddit] Fetched {len(posts)} posts for '{keyword}'")
+
     return posts

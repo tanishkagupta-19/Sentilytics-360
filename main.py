@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from src.pipeline import run_sentiment_pipeline
+from src.processing.pipeline import run_sentiment_pipeline
 import os
 
 print("[ENV] Twitter token present:", bool(os.getenv("TWITTER_BEARER_TOKEN")))
