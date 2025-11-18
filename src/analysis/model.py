@@ -22,7 +22,6 @@ class SentimentAnalyzer:
     def analyze(self, texts: List[str]) -> List[Dict[str, Union[str, float]]]:
         if not texts or not isinstance(texts, list):
             return []
-        
         cleaned_texts = [str(t) for t in texts if t]
         if not cleaned_texts:
             return []
