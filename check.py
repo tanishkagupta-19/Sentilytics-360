@@ -1,4 +1,4 @@
-from src.connectors.api_clients import search_twitter
+from src.connectors.api_clients import fetch_twitter_data
 
-tweets = search_twitter("Elon Musk", 10)
+tweets = fetch_twitter_data("Elon Musk", 10)
 print(tweets)

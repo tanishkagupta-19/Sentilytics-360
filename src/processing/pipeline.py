@@ -35,7 +35,7 @@ def run_sentiment_pipeline(keyword, max_results=50):
     # --- Combine and Standardize Data (using fixed logic) ---
     all_posts = _standardize_posts(twitter_posts, "Twitter")
     all_posts.extend(_standardize_posts(reddit_posts, "Reddit"))
-    
+
     if not all_posts:
         print("No posts were fetched from either source. Returning empty DataFrame.")
         return pd.DataFrame()
