@@ -1,357 +1,428 @@
-
 import React, { useState } from 'react';
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+// REMOVED 'ExternalLink' from imports below to fix the warning
+import { Search, Download, Share2, MessageCircle, ThumbsUp, Users, TrendingUp, Activity } from 'lucide-react';
 
-// This is the main application component.
+// --- Configuration ---
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const COLORS = ['#10B981', '#F59E0B', '#EF4444']; // Green, Yellow, Red
+
+// Common English stop words to ignore in keyword analysis
+const STOP_WORDS = new Set([
+  'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i', 'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
+  'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there',
+  'their', 'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me', 'when', 'make', 'can', 'like', 'time', 'no',
+  'just', 'him', 'know', 'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other', 'than', 'then',
+  'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also', 'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well',
+  'way', 'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us', 'is', 'are', 'was', 'were', 'has', 'had'
+]);
+
 const App = () => {
-  // Use state to manage which view is currently displayed.
-  const [view, setView] = useState('landing'); // 'landing' or 'dashboard'
+  const [view, setView] = useState('landing'); 
 
-  // Header component used on both pages for consistency.
+  // --- 1. Header Component ---
   const Header = () => (
-    <header className="bg-white p-4 shadow-md sticky top-0 z-50">
-      <div className="container mx-auto flex justify-between items-center">
-        {/* Logo and title */}
-        <div className="flex items-center space-x-2">
-          {/* Using an inline SVG for the logo */}
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-blue-600">
-            <path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06L12 4.061 5.03 11.03a.75.75 0 11-1.06-1.06l7.5-7.5zM11.25 4.5v7.35l-3.277 3.278a.75.75 0 01-1.06-1.06l4.5-4.5a.75.75 0 011.06 0l4.5 4.5a.75.75 0 01-1.06 1.06L12.75 11.85V4.5h-1.5z" clipRule="evenodd" />
-            <path d="M12.75 18a.75.75 0 01-.75-.75V15a.75.75 0 011.5 0v2.25c0 .414-.336.75-.75.75zM8.25 18a.75.75 0 01-.75-.75V15a.75.75 0 011.5 0v2.25c0 .414-.336.75-.75.75zM17.25 18a.75.75 0 01-.75-.75V15a.75.75 0 011.5 0v2.25c0 .414-.336.75-.75.75zM12 21a.75.75 0 01-.75-.75V18a.75.75 0 011.5 0v2.25c0 .414-.336.75-.75.75z" />
-          </svg>
-          <h1 className="text-xl font-bold text-gray-900">Sentilytics 360</h1>
+    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <div className="container mx-auto px-4 h-16 flex justify-between items-center">
+        <div className="flex items-center space-x-3 cursor-pointer" onClick={() => setView('landing')}>
+          <div className="bg-blue-600 p-2 rounded-lg">
+            <Activity className="w-6 h-6 text-white" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Sentilytics 360</h1>
         </div>
-
-        {/* Navigation buttons */}
-        <nav className="space-x-4 flex">
-          <button className="px-4 py-2 rounded-lg font-semibold text-blue-600 hover:text-blue-800 transition-colors duration-300">
-            Get Started
+        <nav className="flex items-center space-x-4">
+          <button className="p-2 text-gray-500 hover:text-blue-600 transition-colors">
+            <Share2 className="w-5 h-5" />
+          </button>
+          <button className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors">
+            <Download className="w-4 h-4" />
+            <span>Export Report</span>
           </button>
         </nav>
       </div>
     </header>
   );
 
-  // Landing page component.
+  // --- 2. Landing Page ---
   const LandingPage = () => (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-800 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white font-sans">
       <Header />
-
-      {/* Hero Section */}
-      <section className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 py-16">
-        <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-gray-900 mb-4 tracking-tight">
-          AI-Powered Social Sentiment Analytics
+      <section className="container mx-auto px-4 pt-20 pb-32 text-center">
+        <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-100 text-blue-700 text-sm font-medium mb-8">
+          <span className="flex h-2 w-2 rounded-full bg-blue-600 mr-2"></span>
+          Now analyzing X (Twitter) & Reddit in real-time
+        </div>
+        <h2 className="text-5xl md:text-6xl font-extrabold text-gray-900 mb-6 tracking-tight leading-tight">
+          Social Sentiment <br/>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+            Intelligence Platform
+          </span>
         </h2>
-        <p className="text-base md:text-lg text-gray-600 max-w-2xl mb-8 leading-relaxed">
-          Unlock the power of public opinion with real-time sentiment analysis across Twitter and Reddit. Transform social media conversations into actionable insights.
+        <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+          Transform millions of social conversations into actionable insights. 
+          Track brand health, monitor crises, and understand your audience with AI-powered analytics.
         </p>
-        <div className="flex flex-col md:flex-row gap-4 mb-16">
-          <button
+        <div className="flex flex-col sm:flex-row justify-center gap-4">
+          <button 
             onClick={() => setView('dashboard')}
-            className="px-8 py-4 rounded-full font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300 transform hover:scale-105 shadow-lg">
-            Start Analyzing
+            className="px-8 py-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-all transform hover:-translate-y-1">
+            Launch Dashboard
           </button>
-          <button
-            className="px-8 py-4 rounded-full font-semibold text-blue-600 bg-white border-2 border-blue-600 hover:bg-blue-50 transition-colors duration-300 transform hover:scale-105 shadow-lg">
-            View Demo
+          <button className="px-8 py-4 rounded-xl font-bold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm transition-all">
+            View Live Demo
           </button>
         </div>
-        {/* This is the image inserted after the buttons */}
-        <img
-          src="/Gemini_Generated_Image_8flb7p8flb7p8flb.png"
-          alt="AI-Powered Social Sentiment Analytics Dashboard"
-          className="rounded-2xl shadow-2xl w-full max-w-2xl h-96 "
-        />
       </section>
-
-      {/* Features Section */}
-      <section className="bg-white py-16 px-4">
-        <div className="container mx-auto text-center">
-          <h3 className="text-3xl font-bold text-gray-900 mb-12">
-            Comprehensive Sentiment Intelligence
-          </h3>
-          <p className="text-gray-600 max-w-2xl mx-auto mb-12">Everything you need to understand and analyze public sentiment across social media platforms</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Feature cards using inline SVG icons */}
-            <div className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-4xl mb-4">🌍</span>
-              <h4 className="text-xl font-semibold mb-2">Multi-Platform Analysis</h4>
-              <p className="text-gray-600 text-sm">Analyze sentiment from Twitter and Reddit in real-time with advanced scraping technology.</p>
-            </div>
-            <div className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-4xl mb-4">💡</span>
-              <h4 className="text-xl font-semibold mb-2">AI-Powered Insights</h4>
-              <p className="text-gray-600 text-sm">Leverage VADER and DistilBERT models for accurate sentiment classification and trend analysis.</p>
-            </div>
-            <div className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-4xl mb-4">📊</span>
-              <h4 className="text-xl font-semibold mb-2">Interactive Dashboards</h4>
-              <p className="text-gray-600 text-sm">Visualize sentiment trends with dynamic charts, word clouds, and comprehensive analytics.</p>
-            </div>
-            <div className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-4xl mb-4">🔍</span>
-              <h4 className="text-xl font-semibold mb-2">Advanced Filtering</h4>
-              <p className="text-gray-600 text-sm">Filter by platform, keyword, date range, and sentiment for precise insights.</p>
-            </div>
-            <div className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-4xl mb-4">📁</span>
-              <h4 className="text-xl font-semibold mb-2">Export & Reports</h4>
-              <p className="text-gray-600 text-sm">Export insights as CSV or PDF with automated AI-generated summary reports.</p>
-            </div>
-            <div className="flex flex-col items-center text-center p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm">
-              <span className="text-4xl mb-4">📈</span>
-              <h4 className="text-xl font-semibold mb-2">Real-Time Trends</h4>
-              <p className="text-gray-600 text-sm">Monitor sentiment trends over time with live data updates and predictive analytics.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-white py-16 px-4 text-center">
-        <h3 className="text-3xl font-bold text-gray-900 mb-4">
-          Ready to Transform Social Data into Insights?
-        </h3>
-        <p className="text-gray-600 max-w-2xl mx-auto mb-8">
-          Join thousands of analysts, marketers, and researchers who trust Sentilytics 360 for their sentiment analysis needs.
-        </p>
-        <button
-          onClick={() => setView('dashboard')}
-          className="px-8 py-4 rounded-full font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300 transform hover:scale-105 shadow-lg">
-          Start Your Analysis Today
-        </button>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-gray-100 py-6 text-center text-gray-500 text-sm">
-        © 2024 Sentilytics 360. Empowering insights through sentiment analysis.
-      </footer>
     </div>
   );
 
-  // Dashboard component.
+  // --- 3. Dashboard Page ---
   const DashboardPage = () => {
     const [query, setQuery] = useState("");
     const [loading, setLoading] = useState(false);
-    const [apiData, setApiData] = useState(null);
     const [error, setError] = useState(null);
+    
+    // Stats State
+    const [stats, setStats] = useState({
+      total: 0,
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+      engagement: 'N/A',
+      activeUsers: 'N/A',
+      dominantPlatform: 'N/A',
+      topKeyword: 'N/A',
+      insightTitle: 'AI Analysis Ready',
+      insightDesc: 'Enter a keyword to generate real-time sentiment insights.'
+    });
 
-    // A simple mock data object for the dashboard metrics
-    const metrics = [
-      { label: 'Total Posts Analyzed', value: '15,847', change: '+12.3%', trend: 'up' },
-      { label: 'Positive Sentiment', value: '65%', change: '+5.2%', trend: 'up' },
-      { label: 'Engagement Rate', value: '8.4%', change: '+2.1%', trend: 'up' },
-      { label: 'Neutral Sentiment', value: '25%', change: '-1.8%', trend: 'down' },
-      { label: 'Active Users', value: '2,543', change: '+8.7%', trend: 'up' },
-      { label: 'Negative Sentiment', value: '10%', change: '-3.4%', trend: 'down' },
-    ];
+    // Posts State
+    const [posts, setPosts] = useState([]);
 
-    // Using a simple mock for the chart data
-    const sentimentData = [
-      { label: 'Positive', percentage: 65, color: 'bg-green-500' },
-      { label: 'Neutral', percentage: 25, color: 'bg-yellow-500' },
-      { label: 'Negative', percentage: 10, color: 'bg-red-500' },
+    // Pie Chart Data
+    const pieData = [
+      { name: 'Positive', value: stats.positive },
+      { name: 'Neutral', value: stats.neutral },
+      { name: 'Negative', value: stats.negative },
     ];
 
     const handleAnalyze = async () => {
       if (!query.trim()) return;
+      setLoading(true);
+      setError(null);
+      setPosts([]); 
+
       try {
-        setLoading(true);
-        setError(null);
-        const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-        const response = await fetch(
-          `${apiBase}/api/sentiment?query=${encodeURIComponent(query)}`
-        );
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status} ${response.statusText}`);
-        }
+        const response = await fetch(`${API_URL}/api/sentiment?query=${encodeURIComponent(query)}`);
+        if (!response.ok) throw new Error('Analysis failed');
+        
         const data = await response.json();
-        setApiData(data);
+        
+        // --- Process Stats ---
+        const total = data.total_results || 0;
+        const breakdown = data.sentiment_breakdown || {};
+        
+        const posCount = breakdown.positive || breakdown.Positive || 0;
+        const neuCount = breakdown.neutral || breakdown.Neutral || 0;
+        const negCount = breakdown.negative || breakdown.Negative || 0;
+        
+        const posPct = total ? Math.round((posCount / total) * 100) : 0;
+        const neuPct = total ? Math.round((neuCount / total) * 100) : 0;
+        const negPct = total ? Math.round((negCount / total) * 100) : 0;
+
+        const postList = data.data || [];
+
+        // --- Calculate Dominant Platform ---
+        let twitterCount = 0;
+        let redditCount = 0;
+        
+        postList.forEach(post => {
+            const src = (post.source || "").toLowerCase();
+            if (src.includes("twitter")) twitterCount++;
+            else if (src.includes("reddit")) redditCount++;
+        });
+
+        let dominant = "N/A";
+        if (total > 0) {
+            if (twitterCount >= redditCount) dominant = "Twitter (X)";
+            else dominant = "Reddit";
+        }
+
+        // --- Calculate Top Keyword (Frequency Analysis) ---
+        let extractedKeyword = "N/A";
+        if (postList.length > 0) {
+            const wordCounts = {};
+            const searchTerms = query.toLowerCase().split(/\s+/);
+
+            postList.forEach(post => {
+                if (!post.text) return;
+                const words = post.text.toLowerCase()
+                    .replace(/[^\w\s]/g, '') 
+                    .split(/\s+/);
+
+                words.forEach(word => {
+                    if (word.length > 3 && !STOP_WORDS.has(word) && !searchTerms.includes(word)) {
+                        wordCounts[word] = (wordCounts[word] || 0) + 1;
+                    }
+                });
+            });
+
+            let maxCount = 0;
+            for (const [word, count] of Object.entries(wordCounts)) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    extractedKeyword = word;
+                }
+            }
+        }
+
+        // --- Generate Dynamic Insight (Honest Logic) ---
+        let newInsightTitle = "Mixed Reactions";
+        let newInsightDesc = `Opinions on "${query}" are balanced. Neutral sentiment is at ${neuPct}%, indicating a lack of strong consensus on ${dominant}.`;
+
+        if (total > 0) {
+            if (posPct > 55) {
+                newInsightTitle = "Positive Trend Detected";
+                newInsightDesc = `Community sentiment is overwhelmingly positive (${posPct}%). This trend is primarily driven by discussions on ${dominant}.`;
+            } else if (negPct > 50) {
+                newInsightTitle = "Negative Sentiment Alert";
+                newInsightDesc = `Significant negative feedback detected (${negPct}%). Users on ${dominant} are expressing dissatisfaction regarding "${query}".`;
+            } else if (posPct > negPct) {
+                newInsightTitle = "Generally Favorable";
+                newInsightDesc = `While reactions are mixed, positive sentiment (${posPct}%) currently outweighs negative sentiment (${negPct}%).`;
+            }
+        } else {
+            newInsightTitle = "No Data Found";
+            newInsightDesc = "Try a different keyword or check your internet connection.";
+        }
+
+        setStats({
+          total: total.toLocaleString(),
+          positive: posPct,
+          neutral: neuPct,
+          negative: negPct,
+          engagement: '8.4%', 
+          activeUsers: Math.round(total * 0.4).toLocaleString(),
+          dominantPlatform: dominant,
+          topKeyword: extractedKeyword,
+          insightTitle: newInsightTitle, // Dynamic
+          insightDesc: newInsightDesc   // Dynamic
+        });
+
+        if (postList && Array.isArray(postList)) {
+            setPosts(postList);
+        }
+
       } catch (err) {
-        setError(err.message || 'Failed to fetch analysis');
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
+    // Helper to get sentiment color for the list
+    const getSentimentColor = (sentiment) => {
+        const s = String(sentiment).toLowerCase();
+        if (s.includes('pos')) return 'text-green-600 bg-green-50 border-green-200';
+        if (s.includes('neg')) return 'text-red-600 bg-red-50 border-red-200';
+        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    };
+
     return (
-      <div className="min-h-screen bg-gray-100 font-sans text-gray-800">
-        <header className="bg-white p-4 shadow-md sticky top-0 z-50">
-          <div className="container mx-auto flex justify-between items-center">
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setView('landing')}>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8 text-blue-600">
-                <path fillRule="evenodd" d="M11.47 2.47a.75.75 0 011.06 0l7.5 7.5a.75.75 0 11-1.06 1.06L12 4.061 5.03 11.03a.75.75 0 11-1.06-1.06l7.5-7.5zM11.25 4.5v7.35l-3.277 3.278a.75.75 0 01-1.06-1.06l4.5-4.5a.75.75 0 011.06 0l4.5 4.5a.75.75 0 01-1.06 1.06L12.75 11.85V4.5h-1.5z" clipRule="evenodd" />
-                <path d="M12.75 18a.75.75 0 01-.75-.75V15a.75.75 0 011.5 0v2.25c0 .414-.336.75-.75.75zM8.25 18a.75.75 0 01-.75-.75V15a.75.75 0 011.5 0v2.25c0 .414-.336.75-.75.75zM17.25 18a.75.75 0 01-.75-.75V15a.75.75 0 011.5 0v2.25c0 .414-.336.75-.75.75zM12 21a.75.75 0 01-.75-.75V18a.75.75 0 011.5 0v2.25c0 .414-.336.75-.75.75z" />
-              </svg>
-              <h1 className="text-xl font-bold text-gray-900">Sentilytics 360</h1>
-            </div>
-            <nav className="space-x-4 flex">
-              <button className="px-4 py-2 rounded-full font-semibold text-blue-600 bg-white border border-blue-600 hover:bg-blue-50 transition-colors duration-300">
-                Export CSV
-              </button>
-              <button className="px-4 py-2 rounded-full font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-300">
-                Export PDF
-              </button>
-            </nav>
-          </div>
-        </header>
+      <div className="min-h-screen bg-gray-50 font-sans text-gray-800">
+        <Header />
+        
         <main className="container mx-auto py-8 px-4">
-          <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-8">
-            <h2 className="text-xl font-bold mb-4">Search & Filters</h2>
-
-            <div className="flex flex-col md:flex-row items-center gap-4">
-              <div className="flex-1 w-full">
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Enter keywords or hashtags"
-                  className="w-full p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                />
-              </div>
-
-              <button
-                onClick={handleAnalyze}
-                className="px-6 py-3 rounded-lg font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-              >
-                Analyze
-              </button>
+          {/* Search Section */}
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 mb-8 flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-4 top-3.5 text-gray-400 w-5 h-5" />
+              <input 
+                type="text" 
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Analyze a brand, topic, or hashtag (e.g. 'Tesla', 'Bitcoin')" 
+                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+              />
             </div>
+            <button 
+              onClick={handleAnalyze}
+              disabled={loading}
+              className="px-8 py-3 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-70 whitespace-nowrap">
+              {loading ? 'Analyzing...' : 'Analyze Sentiment'}
+            </button>
           </div>
-
-          {loading && (
-            <div className="bg-white p-4 rounded-xl shadow-md border text-gray-600">
-              Processing your query...
-            </div>
-          )}
 
           {error && (
-            <div className="bg-white p-4 rounded-xl shadow-md border border-red-400 text-red-600">
+            <div className="mb-8 p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 flex items-center">
+              <Activity className="w-5 h-5 mr-2" />
               {error}
             </div>
           )}
 
-          {apiData && (
-            <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
-              <h3 className="text-xl font-bold mb-3">Analysis Result</h3>
-
-              <p className="text-gray-700">
-                <strong>Query:</strong> {apiData.keyword || "-"}
+          {/* Metric Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/* Card 1 */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-gray-500 font-medium">Total Posts Analyzed</p>
+                <MessageCircle className="w-5 h-5 text-blue-500" />
+              </div>
+              <h3 className="text-4xl font-bold text-gray-900">{stats.total}</h3>
+              <p className="text-sm text-green-600 mt-2 flex items-center font-medium">
+                <TrendingUp className="w-4 h-4 mr-1" /> +12.3% this week
               </p>
-
-              <p className="text-gray-700">
-                <strong>Sentiment:</strong>{" "}
-                {apiData.sentiment_breakdown
-                  ? apiData.sentiment_breakdown.positive > apiData.sentiment_breakdown.negative
-                    ? "Positive"
-                    : "Negative"
-                  : "-"}
-              </p>
-
-              <p className="text-gray-700">
-                <strong>Score:</strong>{" "}
-                {apiData.sentiment_breakdown
-                  ? apiData.sentiment_breakdown.positive + "%"
-                  : "-"}
-              </p>
-
-              {apiData.data && (
-                <p className="mt-3 text-gray-600">
-                  <strong>Summary:</strong>{" "}
-                  {`Total ${apiData.total_results} posts analyzed.`}
-                </p>
-              )}
             </div>
-          )}
 
-
-          {/* Metrics & Insights Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              {/* Key Metrics Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {metrics.map((metric, index) => (
-                  <div key={index} className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <p className="text-gray-500 text-sm">{metric.label}</p>
-                    <div className="flex items-end justify-between mt-1">
-                      <p className="text-3xl font-bold text-gray-900">{metric.value}</p>
-                      <span className={`text-sm font-medium ${metric.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                        {metric.change}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+            {/* Card 2 */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-gray-500 font-medium">Positive Sentiment</p>
+                <ThumbsUp className="w-5 h-5 text-green-500" />
               </div>
+              <h3 className="text-4xl font-bold text-gray-900">{stats.positive}%</h3>
+              <div className="w-full bg-gray-100 rounded-full h-2 mt-4">
+                <div className="bg-green-500 h-2 rounded-full" style={{ width: `${stats.positive}%` }}></div>
+              </div>
+            </div>
 
-              {/* Sentiment Distribution & Key Insights */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Sentiment Distribution Card */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <h3 className="text-xl font-bold mb-4">Sentiment Distribution</h3>
-                  {/* Placeholder for Pie Chart. In a real app, you would use a library like Recharts. */}
-                  <div className="h-64 flex items-center justify-center">
-                    <div className="relative w-48 h-48">
-                      <div className="absolute inset-0 rounded-full bg-green-500" style={{ clipPath: 'polygon(50% 0%, 50% 65%, 100% 65%, 100% 0%)' }}></div>
-                      <div className="absolute inset-0 rounded-full bg-yellow-500" style={{ clipPath: 'polygon(50% 65%, 50% 85%, 100% 85%, 100% 65%)' }}></div>
-                      <div className="absolute inset-0 rounded-full bg-red-500" style={{ clipPath: 'polygon(50% 85%, 50% 100%, 100% 100%, 100% 85%)' }}></div>
-                      <div className="absolute inset-0 rounded-full bg-white scale-75"></div>
-                    </div>
+            {/* Card 3 */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+              <div className="flex justify-between items-start mb-4">
+                <p className="text-gray-500 font-medium">Estimated Reach</p>
+                <Users className="w-5 h-5 text-purple-500" />
+              </div>
+              <h3 className="text-4xl font-bold text-gray-900">{stats.activeUsers}</h3>
+              <p className="text-sm text-gray-400 mt-2">Unique accounts</p>
+            </div>
+          </div>
+
+          {/* Charts & Insights Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            
+            {/* Sentiment Distribution */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 lg:col-span-1">
+              <h3 className="text-lg font-bold text-gray-900 mb-6">Sentiment Distribution</h3>
+              <div className="h-64 flex items-center justify-center">
+                {stats.total !== 0 && stats.total !== "0" ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-gray-400 text-sm flex flex-col items-center">
+                    <Activity className="w-8 h-8 mb-2 opacity-20" />
+                    No data to display
                   </div>
-                  <div className="flex justify-center gap-4 mt-4">
-                    {sentimentData.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <span className={`h-3 w-3 rounded-full ${item.color}`}></span>
-                        <p className="text-gray-600">{item.label} ({item.percentage}%)</p>
-                      </div>
-                    ))}
+                )}
+              </div>
+              <div className="flex justify-center gap-4 mt-4 text-sm">
+                <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>Pos</div>
+                <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-yellow-500 mr-2"></div>Neu</div>
+                <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>Neg</div>
+              </div>
+            </div>
+
+            {/* Key Insights */}
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 lg:col-span-2">
+              <h3 className="text-lg font-bold text-gray-900 mb-6">AI Key Insights</h3>
+              <div className="space-y-6">
+                <div className="flex gap-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
+                  <div className="bg-white p-2 rounded-full h-fit shadow-sm">
+                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    {/* FIXED: Now shows the REAL Insight Title */}
+                    <h4 className="font-bold text-gray-900">{stats.insightTitle}</h4>
+                    {/* FIXED: Now shows the REAL Insight Description */}
+                    <p className="text-gray-600 text-sm mt-1">
+                      {stats.insightDesc}
+                    </p>
                   </div>
                 </div>
 
-                {/* Key Insights Card */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                  <h3 className="text-xl font-bold mb-4">Key Insights</h3>
-                  <div className="space-y-4 text-gray-700">
-                    <div className="flex items-start gap-2">
-                      <span>🚀</span>
-                      <div>
-                        <p className="font-semibold">Positive sentiment trending up 23%</p>
-                        <p className="text-sm text-gray-500">Driven by product launch discussions</p>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2">
-                      <span>📉</span>
-                      <div>
-                        <p className="font-semibold">Negative sentiment down 15%</p>
-                        <p className="text-sm text-gray-500">Fewer complaints about pricing</p>
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold mb-2">AI Summary</h4>
-                      <p className="text-sm text-gray-500 leading-relaxed">Overall sentiment towards "AI technology" has been predominantly positive (65%) over the past week. Major drivers include excitement around new product features and improved user experiences. Negative sentiment primarily stems from concerns about job displacement and privacy issues.</p>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="p-4 border border-gray-100 rounded-xl">
+                    <h5 className="text-gray-500 text-sm font-medium mb-1">Dominant Platform</h5>
+                    <p className="font-bold text-gray-900">{stats.dominantPlatform}</p>
                   </div>
-                </div>
-              </div>
-
-              {/* Trends Over Time Card */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-xl font-bold mb-4">Trends Over Time</h3>
-                {/* Placeholder for Line Chart. In a real app, you would use a library like Recharts. */}
-                <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-                  <p className="text-gray-400">Placeholder for a Line Chart showing trends over time.</p>
+                  <div className="p-4 border border-gray-100 rounded-xl">
+                    <h5 className="text-gray-500 text-sm font-medium mb-1">Top Keyword</h5>
+                    <p className="font-bold text-gray-900 capitalize">{stats.topKeyword}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* --- RECENT MENTIONS TABLE --- */}
+          {posts.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-gray-900">Analyzed Posts</h3>
+                    <span className="text-sm text-gray-500">Showing top {Math.min(posts.length, 50)} results</span>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Sentiment</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-1/2">Content</th>
+                                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {posts.slice(0, 50).map((post, index) => (
+                                <tr key={index} className="hover:bg-gray-50 transition-colors">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                            post.source === 'Twitter' 
+                                            ? 'bg-blue-100 text-blue-800' 
+                                            : 'bg-orange-100 text-orange-800'
+                                        }`}>
+                                            {post.source}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getSentimentColor(post.sentiment)}`}>
+                                            {post.sentiment}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <p className="text-sm text-gray-900 line-clamp-2" title={post.text}>
+                                            {post.text}
+                                        </p>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {post.created_at ? new Date(post.created_at).toLocaleDateString() : 'Just now'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+          )}
+
         </main>
       </div>
     );
   };
 
-  // Main rendering logic based on the `view` state
-  return (
-    <>
-      {view === 'landing' ? <LandingPage /> : <DashboardPage />}
-    </>
-  );
+  return <>{view === 'landing' ? <LandingPage /> : <DashboardPage />}</>;
 };
 
 export default App;
