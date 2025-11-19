@@ -156,16 +156,17 @@ const App = () => {
       try {
         setLoading(true);
         setError(null);
+        const apiBase = process.env.REACT_APP_API_URL || 'http://localhost:8000';
         const response = await fetch(
-          `http://localhost:8000/api/sentiment?query=${query}`
+          `${apiBase}/api/sentiment?query=${encodeURIComponent(query)}`
         );
         if (!response.ok) {
-          throw new Error("API request failed");
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
         }
         const data = await response.json();
         setApiData(data);
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Failed to fetch analysis');
       } finally {
         setLoading(false);
       }

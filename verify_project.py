@@ -19,7 +19,7 @@ def check_python_version():
     if version.major < 3 or (version.major == 3 and version.minor < 8):
         print("[ERROR] ERROR: Python 3.8+ is required")
         return False
-        print("[OK] Python version is compatible")
+    print("[OK] Python version is compatible")
     return True
 
 def check_imports():

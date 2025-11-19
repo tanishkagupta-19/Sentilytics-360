@@ -20,14 +20,12 @@ async def main():
     client = Client('en-US')
 
     try:
-        # Using auth_info_2 (email) helps avoid "unusual activity" challenges
+        # Use cookies_file parameter for proper cookie persistence
         await client.login(
             auth_info_1=username,
-            auth_info_2=email,
-            password=password
+            password=password,
+            cookies_file='twitter_cookies.json'
         )
-        
-        client.save_cookies('twitter_cookies.json')
         print("✅ Success! 'twitter_cookies.json' has been created.")
         print("You can now run your main app, and it will use this session.")
         

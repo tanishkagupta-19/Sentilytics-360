@@ -34,18 +34,32 @@ app = FastAPI(
 )
 
 # --- CORS (Important for frontend working on another port) ---
+# Restrict to frontend origin in production
+frontend_url = os.getenv("FRONTEND_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[frontend_url, "http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 # --- Request Schema ---
 class KeywordRequest(BaseModel):
     keyword: str
     max_results: int = 50
+
+
+class SentimentResponse(BaseModel):
+    keyword: str
+    total_results: int
+    sentiment_breakdown: dict
+    data: list
+
+
+class AnalysisResponse(BaseModel):
+    status: str
+    message: str
 
 # ---------------------------------------------------------
 # Helper functions
@@ -79,74 +93,95 @@ def root():
     return {"message": "Welcome to the Sentilytics 360 API!"}
 
 
-@app.get("/api/sentiment")
-def sentiment(query: str):
+@app.get("/api/sentiment", response_model=SentimentResponse)
+async def sentiment(query: str = Query(..., min_length=1, max_length=200)):
     """
-    Called by frontend using:
-    GET http://localhost:8000/api/sentiment?query=tesla
+    Analyze sentiment for a keyword.
+    
+    - `query`: Search term (max 200 chars)
+    
+    Returns sentiment breakdown and up to 200 posts
     """
-    if not query or not query.strip():
-        raise HTTPException(status_code=400, detail="Query parameter cannot be empty.")
+    if not query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be only whitespace.")
 
     try:
         logger.info(f"Processing sentiment analysis for query: {query}")
-        # Note: This runs synchronously, which might block the Uvicorn loop slightly.
-        # This is acceptable for quick demo fetches (max_results=200).
-        df = run_sentiment_pipeline(query, 200)
+        df = await asyncio.to_thread(run_sentiment_pipeline, query, 200)
 
         if df.empty:
-            return {
-                "keyword": query,
-                "total_results": 0,
-                "sentiment_breakdown": {},
-                "data": [],
-            }
+            return SentimentResponse(
+                keyword=query,
+                total_results=0,
+                sentiment_breakdown={},
+                data=[],
+            )
 
-        return {
-            "keyword": query,
-            "total_results": len(df),
-            "sentiment_breakdown": (
-                df["sentiment"].value_counts().to_dict()
-                if "sentiment" in df.columns else {}
-            ),
-            "data": df.to_dict(orient="records"),
-        }
+        sentiment_breakdown = (
+            df["sentiment"].value_counts().to_dict()
+            if "sentiment" in df.columns else {}
+        )
+
+        return SentimentResponse(
+            keyword=query,
+            total_results=len(df),
+            sentiment_breakdown=sentiment_breakdown,
+            data=df.to_dict(orient="records"),
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.exception(f"Error processing sentiment for query: {query}")
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error during analysis.")
 
 
 # ----------------------------------------------------------
 # 2. OPTIONAL — Your existing POST endpoint
 # ----------------------------------------------------------
-@app.post("/api/run_analysis/")
+@app.post("/api/run_analysis/", response_model=AnalysisResponse)
 def run_analysis_endpoint(request: KeywordRequest):
     """Run sentiment analysis pipeline via POST request."""
     if not request.keyword or not request.keyword.strip():
         raise HTTPException(status_code=400, detail="Keyword cannot be empty.")
 
+    if request.max_results < 1 or request.max_results > 500:
+        raise HTTPException(status_code=400, detail="max_results must be between 1 and 500.")
+
     try:
         logger.info(f"Running analysis for keyword: {request.keyword}, max_results: {request.max_results}")
         df = run_sentiment_pipeline(request.keyword, request.max_results)
-        return {
-            "status": "success",
-            "message": f"Pipeline completed for '{request.keyword}'. {len(df)} results saved to DB."
-        }
+        
+        result_count = len(df) if hasattr(df, "__len__") else 0
+        return AnalysisResponse(
+            status="success",
+            message=f"Pipeline completed for '{request.keyword}'. {result_count} results saved to DB."
+        )
     except Exception as e:
         logger.exception(f"Analysis failed for keyword: {request.keyword}")
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Analysis pipeline failed. Please try again.")
 
 
 # ----------------------------------------------------------
 # 3. OPTIONAL — Fetch all DB results
 # ----------------------------------------------------------
 @app.get("/api/results/")
-def get_all_results(db: Session = Depends(get_db)):
-    results = db.query(models.SentimentResult).all()
-    return results
+def get_all_results(db: Session = Depends(get_db), skip: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000)):
+    """
+    Fetch all results with pagination.
+    
+    - `skip`: Number of records to skip (default 0)
+    - `limit`: Number of records to return (max 1000, default 100)
+    """
+    total = db.query(models.SentimentResult).count()
+    results = db.query(models.SentimentResult).offset(skip).limit(limit).all()
+    
+    return {
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "data": results
+    }
 
 
 # ----------------------------------------------------------
@@ -154,25 +189,30 @@ def get_all_results(db: Session = Depends(get_db)):
 # ----------------------------------------------------------
 @app.get("/analyze")
 async def analyze_keyword(
-    keyword: str,
-    # FIX: Move background_tasks here, before any default arguments.
-    background_tasks: BackgroundTasks, 
+    keyword: str = Query(..., min_length=1, max_length=200),
+    background_tasks: BackgroundTasks = BackgroundTasks(), 
     max_results: int = Query(25, ge=1, le=200),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     background: bool = Query(False),
 ):
-    """Run sentiment analysis pipeline for a keyword.
+    """Run sentiment analysis pipeline for a keyword with pagination.
 
-    - `background=true` → runs in background, returns 202
-    - supports pagination with `page` and `page_size`
+    Parameters:
+    - `keyword`: Search term (required, max 200 chars)
+    - `max_results`: Number of posts to analyze (1-200, default 25)
+    - `page`: Page number for pagination (default 1)
+    - `page_size`: Results per page (1-100, default 25)
+    - `background`: If true, runs async and returns 202 (default false)
+    
+    Requires REDDIT_CLIENT_ID environment variable to be set.
     """
-    if not keyword:
-        raise HTTPException(status_code=400, detail="Keyword cannot be empty.")
+    if not keyword.strip():
+        raise HTTPException(status_code=400, detail="Keyword cannot be only whitespace.")
 
     if not credentials_available():
         logger.error("Missing upstream credentials.")
-        raise HTTPException(status_code=503, detail="Upstream credentials not configured.")
+        raise HTTPException(status_code=503, detail="Upstream credentials not configured. Set REDDIT_CLIENT_ID.")
 
     try:
         # Run in background mode if requested
@@ -188,7 +228,7 @@ async def analyze_keyword(
             raise HTTPException(status_code=500, detail="Pipeline returned unexpected result type")
 
         if results_df.empty:
-            return {"data": [], "summary": {}}
+            return {"data": [], "summary": {"total_posts": 0, "sentiment_counts": {}, "platform_summary": {}}}
 
         # Convert to JSON records
         data = results_df.to_dict("records")
@@ -198,13 +238,18 @@ async def analyze_keyword(
         paged = data[start:end]
 
         # Summaries
-        sentiment_counts = results_df["sentiment"].value_counts().to_dict()
-        platform_summary = (
-            results_df.groupby("source")["sentiment"]
-            .value_counts()
-            .unstack(fill_value=0)
-            .to_dict("index")
-        )
+        sentiment_counts = results_df["sentiment"].value_counts().to_dict() if "sentiment" in results_df.columns else {}
+        platform_summary = {}
+        if "source" in results_df.columns and "sentiment" in results_df.columns:
+            try:
+                platform_summary = (
+                    results_df.groupby("source")["sentiment"]
+                    .value_counts()
+                    .unstack(fill_value=0)
+                    .to_dict("index")
+                )
+            except (KeyError, ValueError):
+                platform_summary = {}
 
         summary = {
             "total_posts": total,
@@ -212,6 +257,7 @@ async def analyze_keyword(
             "platform_summary": platform_summary,
             "page": page,
             "page_size": page_size,
+            "has_next": end < total,
         }
 
         return {"data": paged, "summary": summary}
