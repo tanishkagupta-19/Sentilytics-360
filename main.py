@@ -23,7 +23,6 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s"
 )
 
-logger.info("[ENV] Twitter token present: %s", bool(os.getenv("TWITTER_BEARER_TOKEN")))
 logger.info("[ENV] Reddit client ID present: %s", bool(os.getenv("REDDIT_CLIENT_ID")))
 logger.info("[ENV] Reddit secret present: %s", bool(os.getenv("REDDIT_CLIENT_SECRET")))
 
@@ -66,13 +65,13 @@ def _background_pipeline(keyword: str, max_results: int):
     try:
         df = run_sentiment_pipeline(keyword, max_results)
         logger.info("Background job completed: keyword=%s, rows=%d",
-                    keyword, len(df) if hasattr(df, "shape") else 0)
+                     keyword, len(df) if hasattr(df, "shape") else 0)
         # Results are automatically saved to DB by the pipeline
     except Exception:
         logger.exception("Background job failed for keyword=%s", keyword)
 
 # ----------------------------------------------------------
-# 1. BACKEND ENDPOINT MATCHING YOUR FRONTEND
+# 1. FRONTEND API ENDPOINT
 # ----------------------------------------------------------
 @app.get("/")
 def root():
@@ -91,6 +90,8 @@ def sentiment(query: str):
 
     try:
         logger.info(f"Processing sentiment analysis for query: {query}")
+        # Note: This runs synchronously, which might block the Uvicorn loop slightly.
+        # This is acceptable for quick demo fetches (max_results=200).
         df = run_sentiment_pipeline(query, 200)
 
         if df.empty:
@@ -119,7 +120,7 @@ def sentiment(query: str):
 
 
 # ----------------------------------------------------------
-# 2. OPTIONAL — Your existing POST endpoint (kept as-is)
+# 2. OPTIONAL — Your existing POST endpoint
 # ----------------------------------------------------------
 @app.post("/api/run_analysis/")
 def run_analysis_endpoint(request: KeywordRequest):
@@ -140,7 +141,7 @@ def run_analysis_endpoint(request: KeywordRequest):
 
 
 # ----------------------------------------------------------
-# 3. OPTIONAL — Fetch all DB results (kept as-is)
+# 3. OPTIONAL — Fetch all DB results
 # ----------------------------------------------------------
 @app.get("/api/results/")
 def get_all_results(db: Session = Depends(get_db)):
@@ -154,11 +155,12 @@ def get_all_results(db: Session = Depends(get_db)):
 @app.get("/analyze")
 async def analyze_keyword(
     keyword: str,
+    # FIX: Move background_tasks here, before any default arguments.
+    background_tasks: BackgroundTasks, 
     max_results: int = Query(25, ge=1, le=200),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     background: bool = Query(False),
-    background_tasks: BackgroundTasks = Depends(),
 ):
     """Run sentiment analysis pipeline for a keyword.
 

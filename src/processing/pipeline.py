@@ -8,7 +8,7 @@ def _standardize_posts(posts, source):
     """Internal helper to ensure posts are dicts with standard keys."""
     standardized = []
     for post in posts:
-        # Crucial fix: Accessing dictionary keys instead of object attributes
+        # Accessing dictionary keys since our clients return dicts now
         standardized.append({
             "source": source,
             "created_at": post.get('created_at'),
@@ -20,74 +20,68 @@ def run_sentiment_pipeline(keyword, max_results=50):
     analyzer = get_analyzer()
 
     # --- 1. EXTRACT ---
-    twitter_posts = []
-    try:
-        twitter_posts = fetch_twitter_data(keyword, max_results)
-    except Exception as e:
-        print(f"Twitter fetch failed: {e}")
+    # Fetch data (Twitter will use Mock Data if scraping fails)
+    twitter_posts = fetch_twitter_data(keyword, max_results)
+    reddit_posts = fetch_reddit_data(keyword, max_results)
 
-    reddit_posts = []
-    try:
-        reddit_posts = fetch_reddit_data(keyword, max_results)
-    except Exception as e:
-        print(f"Reddit fetch failed: {e}")
-
-    # --- Combine and Standardize Data (using fixed logic) ---
+    # --- Combine and Standardize ---
     all_posts = _standardize_posts(twitter_posts, "Twitter")
     all_posts.extend(_standardize_posts(reddit_posts, "Reddit"))
-
+    
     if not all_posts:
-        print("No posts were fetched from either source. Returning empty DataFrame.")
+        print("No posts were fetched from either source.")
         return pd.DataFrame()
 
     df = pd.DataFrame(all_posts)
     df['cleaned_text'] = df['text'].apply(preprocess_text)
 
     # --- 2. TRANSFORM (Analysis) ---
-    # NOTE: Do NOT reset the index here. It preserves the link to df.
-    valid_texts_df = df[df['cleaned_text'].str.len() > 0].copy() 
+    # Filter out empty texts
+    valid_texts_df = df[df['cleaned_text'].str.len() > 0].copy()
+    
     if valid_texts_df.empty:
-        print("All fetched texts were empty after cleaning. Returning empty DataFrame.")
-        return pd.DataFrame()
+        return df
 
     # Apply analysis
     results_df = pd.DataFrame()
     try:
+        # Run the actual AI model
         raw_results = analyzer.analyze(valid_texts_df['cleaned_text'].tolist())
         results_df = pd.DataFrame(raw_results)
         
-        # Rename and clean sentiment columns for merge
+        # Standardize column names
         results_df.rename(columns={'label': 'sentiment', 'score': 'sentiment_score'}, inplace=True)
         results_df['sentiment'] = results_df['sentiment'].astype(str).str.capitalize()
+        
+        print(f"✅ Analysis successful. Generated {len(results_df)} sentiment scores.")
 
     except Exception as e:
-        print(f"Sentiment analysis failed: {e}. Skipping analysis and database save.")
-        return df # Return raw DataFrame if analysis fails
+        print(f"❌ Sentiment analysis failed: {e}")
+        # Return DataFrame without sentiment if analysis crashes
+        return df 
 
-    # NEW: Prepare results_df for index-based merge
-    # Set the index of results_df to match the original index of valid_texts_df
+    # Join results back to the main dataframe
+    # We use the index to ensure alignment
     results_df.index = valid_texts_df.index
-    
-    # Merge results back into the original DataFrame using index
     df = df.merge(
         results_df[['sentiment', 'sentiment_score']], 
-        left_index=True,          # Merge on df's index
-        right_index=True,         # Merge on results_df's index
+        left_index=True, 
+        right_index=True, 
         how='left'
     )
     
-    # Clean up the result
-    df.dropna(subset=['sentiment'], inplace=True) # Drop rows where analysis failed/wasn't performed
+    # Fill NaNs for display safety
+    df['sentiment'] = df['sentiment'].fillna('Neutral')
+    df['sentiment_score'] = df['sentiment_score'].fillna(0.0)
 
     # --- 3. LOAD (Database) ---
-    db_columns = df[['text', 'sentiment', 'sentiment_score']].copy()
-
-    db_columns.rename(columns={
-        'text': 'input_text',
-        'sentiment': 'sentiment_label',
-    }, inplace=True)
-
     try:
+        db_columns = df[['text', 'sentiment', 'sentiment_score']].copy()
+        db_columns.rename(columns={
+            'text': 'input_text',
+            'sentiment': 'sentiment_label',
+        }, inplace=True)
+
         db_columns.to_sql(
             name='sentiment_results',
             con=engine,

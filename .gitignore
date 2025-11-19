@@ -1,76 +1,81 @@
-# Byte-compiled / optimized / C files
+# ==========================================
+# PYTHON (backend)
+# ==========================================
 __pycache__/
-*.py[cod]
+*.pyc
+*.pyo
+*.pyd
 *$py.class
 
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
-# Environments
-.env
-.venv
+# Virtual environments
 venv/
-Venv/
+.venv/
 env/
 ENV/
 env.bak/
 venv.bak/
 
-# IDE-specific files
-.idea/
+# Python environment files
+.env
+.env.*
+*.log
+
+# Python caches
+.cache/
+.mypy_cache/
+.pytest_cache/
+.pylint.d/
+coverage/
+htmlcov/
+*.sqlite3
+*.db
+
+# Packaging
+*.egg-info/
+*.egg
+.eggs/
+
+# ==========================================
+# NODE / REACT (frontend)
+# ==========================================
+node_modules/
+build/
+dist/
+
+# React env files
+frontend/.env
+frontend/.env.local
+frontend/.env.development
+frontend/.env.production
+frontend/.env.test
+
+# Node logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.log
+
+# React caches
+.cache/
+.parcel-cache/
+.next/
+*.tsbuildinfo
+
+# ==========================================
+# IDE / EDITORS
+# ==========================================
 .vscode/
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.idea/
 
-# Jupyter Notebook files
-.ipynb_checkpoints
+# ==========================================
+# OS FILES
+# ==========================================
+.DS_Store
+Thumbs.db
 
-# Secret files
-*.env
-secrets.toml
+# ==========================================
+# GENERAL TEMP
+# ==========================================
+*.tmp
+*.temp

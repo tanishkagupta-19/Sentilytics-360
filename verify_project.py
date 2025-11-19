@@ -193,7 +193,7 @@ def check_fastapi_app():
         # Import app but don't run it
         import sys
         sys.path.insert(0, os.getcwd())
-        from app import app
+        from main import app
         print("[OK] FastAPI app can be imported")
         print(f"[OK] App title: {app.title}")
         print(f"[OK] App version: {app.version}")
